@@ -17,8 +17,22 @@ export default function P2PCache() {
   const incomingRef = useRef({ chunks: [], receivedBytes: 0, fileSize: 0, fileName: '' });
 
   useEffect(() => {
+    socket.on('p2p:seed-list', (seeds) => {
+      setAvailableSeeds((prev) => {
+        const merged = [...prev];
+        for (const s of seeds) {
+          if (!merged.some((m) => m.fileId === s.fileId)) merged.push(s);
+        }
+        return merged;
+      });
+    });
+
     socket.on('p2p:seed-available', (info) => {
       setAvailableSeeds((prev) => [...prev.filter((s) => s.fileId !== info.fileId), info]);
+    });
+
+    socket.on('p2p:seed-removed', ({ fileId }) => {
+      setAvailableSeeds((prev) => prev.filter((s) => s.fileId !== fileId));
     });
 
     socket.on('p2p:incoming-request', async ({ fileId, requesterSocketId }) => {
@@ -53,7 +67,9 @@ export default function P2PCache() {
     });
 
     return () => {
+      socket.off('p2p:seed-list');
       socket.off('p2p:seed-available');
+      socket.off('p2p:seed-removed');
       socket.off('p2p:incoming-request');
       socket.off('p2p:signal');
       socket.off('p2p:no-seed');

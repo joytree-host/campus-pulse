@@ -9,6 +9,17 @@ function registerSockets(io) {
   const seeders = new Map();
 
   io.on('connection', (socket) => {
+    // Catch up newly-connected clients on files already being seeded —
+    // otherwise a tab that opens after the announcement never learns about it.
+    if (seeders.size > 0) {
+      const currentSeeds = [...seeders.entries()].map(([fileId, s]) => ({
+        fileId,
+        fileName: s.fileName,
+        fileSize: s.fileSize,
+      }));
+      socket.emit('p2p:seed-list', currentSeeds);
+    }
+
     socket.on('p2p:announce-seed', ({ fileId, fileName, fileSize }) => {
       seeders.set(fileId, { socketId: socket.id, fileName, fileSize });
       socket.broadcast.emit('p2p:seed-available', { fileId, fileName, fileSize });
@@ -34,7 +45,10 @@ function registerSockets(io) {
 
     socket.on('disconnect', () => {
       for (const [fileId, seeder] of seeders.entries()) {
-        if (seeder.socketId === socket.id) seeders.delete(fileId);
+        if (seeder.socketId === socket.id) {
+          seeders.delete(fileId);
+          socket.broadcast.emit('p2p:seed-removed', { fileId });
+        }
       }
     });
   });

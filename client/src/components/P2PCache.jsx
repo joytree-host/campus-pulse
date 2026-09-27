@@ -136,13 +136,39 @@ export default function P2PCache() {
 
   function setupSeederChannel(channel, file) {
     channel.binaryType = 'arraybuffer';
+    // Without this, sending a big file as a tight burst of channel.send() calls
+    // floods the browser's internal SCTP send buffer — for a small text file it's
+    // fine, but for a 30MB video it overwhelms it and the transfer silently stalls
+    // or errors out partway through. Pausing whenever the buffered amount gets
+    // too high, and resuming on 'bufferedamountlow', keeps sending paced to what
+    // the channel can actually push out.
+    const BUFFER_LOW_THRESHOLD = 256 * 1024; // 256KB
+    channel.bufferedAmountLowThreshold = BUFFER_LOW_THRESHOLD;
+
     channel.onopen = async () => {
       const buffer = await file.arrayBuffer();
       channel.send(JSON.stringify({ meta: true, name: file.name, size: buffer.byteLength }));
-      for (let offset = 0; offset < buffer.byteLength; offset += CHUNK_SIZE) {
-        channel.send(buffer.slice(offset, offset + CHUNK_SIZE));
-      }
-      channel.send(JSON.stringify({ done: true }));
+
+      let offset = 0;
+      const sendMore = () => {
+        try {
+          while (offset < buffer.byteLength) {
+            if (channel.bufferedAmount > BUFFER_LOW_THRESHOLD) {
+              channel.onbufferedamountlow = () => {
+                channel.onbufferedamountlow = null;
+                sendMore();
+              };
+              return;
+            }
+            channel.send(buffer.slice(offset, offset + CHUNK_SIZE));
+            offset += CHUNK_SIZE;
+          }
+          channel.send(JSON.stringify({ done: true }));
+        } catch (err) {
+          console.error('P2P send error:', err);
+        }
+      };
+      sendMore();
     };
   }
 

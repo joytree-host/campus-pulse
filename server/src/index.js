@@ -11,16 +11,30 @@ const { startStatusLoop } = require('./statusProbe');
 const { registerSockets } = require('./sockets');
 
 const PORT = process.env.PORT || 4000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+// CORS_ORIGIN can be a single URL or a comma-separated list (e.g. prod + preview
+// deploys). Previously this only accepted one exact origin, which silently broke
+// every request (including the Socket.io handshake, showing as "xhr poll error")
+// whenever the frontend was served from any URL other than that one.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 const STATUS_INTERVAL_MS = Number(process.env.STATUS_INTERVAL_MS || 30000);
 
+function originCheck(origin, callback) {
+  // Allow no-origin requests (curl, server-to-server, some mobile webviews)
+  if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+  console.warn(`CORS blocked origin: ${origin}. Allowed: ${ALLOWED_ORIGINS.join(', ')}`);
+  return callback(null, false);
+}
+
 const app = express();
-app.use(cors({ origin: CORS_ORIGIN }));
+app.use(cors({ origin: originCheck }));
 app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: CORS_ORIGIN },
+  cors: { origin: originCheck },
 });
 
 app.get('/health', (req, res) => res.json({ ok: true }));

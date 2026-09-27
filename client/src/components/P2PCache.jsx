@@ -5,7 +5,18 @@ import { socket } from '../socket';
 // (offer/answer/ICE candidates). The file itself streams directly between
 // browsers over an RTCDataChannel once the connection is established.
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// STUN alone only works when both peers can be reached directly (most home WiFi).
+// Mobile carriers put devices behind CGNAT/symmetric NAT, which STUN cannot
+// traverse — so we add a free public TURN relay (Open Relay Project) as a
+// fallback path. It's rate-limited (20GB/month, shared, no SLA) — fine for
+// testing/small classes; swap in your own TURN server or a paid Metered plan
+// before relying on this for a whole campus.
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+];
 const CHUNK_SIZE = 16 * 1024;
 
 export default function P2PCache() {
@@ -81,6 +92,15 @@ export default function P2PCache() {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit('p2p:signal', { to: peerSocketId, data: { type: 'ice', candidate: event.candidate } });
+      }
+    };
+    pc.oniceconnectionstatechange = () => {
+      if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
+        setDownloadProgress((prev) =>
+          prev && !prev.done
+            ? { error: `Connection ${pc.iceConnectionState} — the peer may be unreachable (different networks, strict firewall, or they closed the tab).` }
+            : prev
+        );
       }
     };
     peersRef.current[peerSocketId] = pc;

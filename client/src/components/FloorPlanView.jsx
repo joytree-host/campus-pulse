@@ -42,9 +42,17 @@ function RoomTile({ room, selected, onSelect }) {
 export default function FloorPlanView({ onSelectRoom, selectedRoomId }) {
   const [buildings, setBuildings] = useState([]);
   const [heatmap, setHeatmap] = useState([]);
+  const [debugError, setDebugError] = useState(null);
 
   useEffect(() => {
-    api.getBuildings().then(setBuildings).catch(() => {});
+    api.getBuildings()
+      .then((data) => {
+        setBuildings(data);
+        setDebugError(null);
+      })
+      .catch((err) => {
+        setDebugError(err.message || String(err));
+      });
     api.getHeatmapLatest().then(setHeatmap).catch(() => {});
 
     const onUpdate = (payload) => {
@@ -90,7 +98,15 @@ export default function FloorPlanView({ onSelectRoom, selectedRoomId }) {
         blueprint image later (see README).
       </p>
 
-      {roomsByBuilding.length === 0 && (
+      {debugError && (
+        <div className="mb-3 rounded-lg border border-rose-500 bg-rose-950/50 p-3 text-xs text-rose-300 break-words">
+          <div className="font-semibold mb-1">DEBUG: fetch to /api/locations failed</div>
+          <div>API_URL used: {import.meta.env.VITE_API_URL || '(not set — using http://localhost:4000)'}</div>
+          <div>Error: {debugError}</div>
+        </div>
+      )}
+
+      {roomsByBuilding.length === 0 && !debugError && (
         <p className="text-slate-400 text-sm">No buildings seeded yet — run the server's seed script.</p>
       )}
 

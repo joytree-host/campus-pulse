@@ -23,11 +23,23 @@ export default function P2PCache() {
   const [availableSeeds, setAvailableSeeds] = useState([]);
   const [seedingFile, setSeedingFile] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(null);
+  const [socketStatus, setSocketStatus] = useState(socket.connected ? 'connected' : 'connecting…');
+  const [socketError, setSocketError] = useState(null);
   const peersRef = useRef({}); // socketId -> RTCPeerConnection
   const fileRef = useRef(null); // File currently being seeded
   const incomingRef = useRef({ chunks: [], receivedBytes: 0, fileSize: 0, fileName: '' });
 
   useEffect(() => {
+    const onConnect = () => { setSocketStatus('connected'); setSocketError(null); };
+    const onDisconnect = (reason) => setSocketStatus(`disconnected (${reason})`);
+    const onConnectError = (err) => {
+      setSocketStatus('connect_error');
+      setSocketError(err.message || String(err));
+    };
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
+
     socket.on('p2p:seed-list', (seeds) => {
       setAvailableSeeds((prev) => {
         const merged = [...prev];
@@ -78,6 +90,9 @@ export default function P2PCache() {
     });
 
     return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off('p2p:seed-list');
       socket.off('p2p:seed-available');
       socket.off('p2p:seed-removed');
@@ -170,6 +185,17 @@ export default function P2PCache() {
         Share a large file with everyone else on this page — transfer happens directly
         browser-to-browser over WebRTC, not through the server.
       </p>
+
+      <div className={`mb-3 rounded-lg border p-3 text-xs break-words ${
+        socketStatus === 'connected'
+          ? 'border-emerald-600 bg-emerald-950/40 text-emerald-300'
+          : 'border-rose-500 bg-rose-950/50 text-rose-300'
+      }`}>
+        <div className="font-semibold mb-1">DEBUG: signaling socket status</div>
+        <div>SOCKET_URL used: {import.meta.env.VITE_SOCKET_URL || '(not set — using http://localhost:4000)'}</div>
+        <div>Status: {socketStatus}</div>
+        {socketError && <div>Error: {socketError}</div>}
+      </div>
 
       <label className="block text-sm mb-4">
         <span className="text-slate-400">Seed a file:</span>

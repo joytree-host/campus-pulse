@@ -42,4 +42,4 @@ Copy the frontend's live `.onrender.com` URL, go back to `joytree-campus-pulse-a
 
 - Free-tier Render services spin down after inactivity and take ~30-60s to wake up on the next request — that's normal, not a bug.
 - The database is already set to PostgreSQL (`schema.prisma`) and the build step runs `prisma db push`, so tables get created/updated automatically on every deploy — nothing to run manually.
-- Seed real campus data once live: Dashboard → `joytree-campus-pulse-api` → **Shell** tab → `npm run seed` (after editing `server/src/seed.js` with your actual buildings/rooms first, then redeploying so the shell has the updated file).
+- Free-tier Render services have no Shell/SSH access, so seeding runs automatically as part of every build (`node src/seed.js` after `prisma db push`). It's safe to run repeatedly — it only creates rows that don't already exist. To load your real campus data: edit `server/src/seed.js` with your actual buildings/rooms, commit, push — the next deploy seeds it.

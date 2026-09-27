@@ -27,10 +27,22 @@ export default function P2PCache() {
   const [socketError, setSocketError] = useState(null);
   const peersRef = useRef({}); // socketId -> RTCPeerConnection
   const fileRef = useRef(null); // File currently being seeded
+  const seedInfoRef = useRef(null); // {fileId, fileName, fileSize} of the file we're seeding, if any
   const incomingRef = useRef({ chunks: [], receivedBytes: 0, fileSize: 0, fileName: '' });
 
   useEffect(() => {
-    const onConnect = () => { setSocketStatus('connected'); setSocketError(null); };
+    const onConnect = () => {
+      setSocketStatus('connected');
+      setSocketError(null);
+      // The server's "who is seeding what" list lives only in memory and is tied
+      // to the live socket connection. Mobile networks reconnect sockets often
+      // (tower handoff, screen lock, backgrounding), which silently drops any
+      // seed we had announced. Re-announce it so we don't vanish from peers'
+      // lists without any visible error.
+      if (seedInfoRef.current) {
+        socket.emit('p2p:announce-seed', seedInfoRef.current);
+      }
+    };
     const onDisconnect = (reason) => setSocketStatus(`disconnected (${reason})`);
     const onConnectError = (err) => {
       setSocketStatus('connect_error');
@@ -170,7 +182,9 @@ export default function P2PCache() {
     fileRef.current = file;
     setSeedingFile(file);
     const fileId = `${file.name}-${file.size}-${Date.now()}`;
-    socket.emit('p2p:announce-seed', { fileId, fileName: file.name, fileSize: file.size });
+    const info = { fileId, fileName: file.name, fileSize: file.size };
+    seedInfoRef.current = info;
+    socket.emit('p2p:announce-seed', info);
   }
 
   function handleDownload(seed) {

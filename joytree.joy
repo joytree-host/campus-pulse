@@ -1,0 +1,54 @@
+name: campus-pulse
+
+# Converted from render.yaml (Render Blueprint) to Joytree's own Blueprint
+# format. Same two services + one database render.yaml declared, translated
+# field-for-field, with two intentional differences from the Render version:
+#
+#   1. No PORT env var. Joytree assigns and injects its own PORT into every
+#      service container (anything named PORT/HOST/HOSTNAME set here would
+#      be silently stripped at deploy time), and server/src/index.js already
+#      falls back to 4000 when PORT isn't set, so nothing to change there.
+#
+#   2. CORS_ORIGIN isn't set here. ${services.web.url} only resolves for a
+#      service deployed BEFORE the one referencing it (services provision in
+#      the order declared below), and "api" is provisioned first -- so it
+#      can't yet know "web"'s URL. This is the exact same limitation the
+#      original render.yaml had (see its own CORS_ORIGIN comment and
+#      DEPLOY.md step 4, "Close the loop on CORS") -- not something this
+#      conversion introduces. After the first Blueprint run: copy the "web"
+#      service's live URL, set it as CORS_ORIGIN on "api" (Project ->
+#      Environment Variables), then redeploy just "api".
+#
+# Same DB-ordering note applies to the very first run: services provision
+# before databases, so "api"'s first build runs `prisma db push` with no
+# DATABASE_URL yet and will fail -- expected, exactly as the original
+# DEPLOY.md says ("Both will fail their first deploy"). Once this Blueprint
+# finishes, "maindb" will be linked and DATABASE_URL injected into "api";
+# trigger one more deploy of just "api" (Project -> New Version) to pick it
+# up and re-run `prisma db push` successfully.
+
+services:
+  - name: api
+    type: web
+    runtime: node
+    workingDir: server
+    buildCmd: npm install && npm run build
+    startCmd: npm start
+    env:
+      STATUS_TARGETS: ""       # e.g. "Student Portal|https://portal.example.edu,LMS|https://lms.example.edu"
+      STATUS_INTERVAL_MS: "30000"
+      # CORS_ORIGIN: set manually after first deploy -- see note above.
+
+  - name: web
+    type: static
+    workingDir: client
+    buildCmd: npm install && npm run build
+    outputDir: dist
+    env:
+      VITE_API_URL: ${services.api.url}
+      VITE_SOCKET_URL: ${services.api.url}
+
+databases:
+  - name: maindb
+    engine: postgres
+    linkTo: [api]

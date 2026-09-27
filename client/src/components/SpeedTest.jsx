@@ -20,7 +20,7 @@ async function runSpeedTest() {
   };
 }
 
-export default function SpeedTest() {
+export default function SpeedTest({ selectedBuildingId, selectedRoomId }) {
   const [buildings, setBuildings] = useState([]);
   const [buildingId, setBuildingId] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -31,6 +31,12 @@ export default function SpeedTest() {
   useEffect(() => {
     api.getBuildings().then(setBuildings).catch(() => {});
   }, []);
+
+  // Sync with a room tapped on the Campus Map above
+  useEffect(() => {
+    if (selectedBuildingId != null) setBuildingId(String(selectedBuildingId));
+    if (selectedRoomId != null) setRoomId(String(selectedRoomId));
+  }, [selectedBuildingId, selectedRoomId]);
 
   const rooms = buildings.find((b) => String(b.id) === String(buildingId))?.rooms || [];
 

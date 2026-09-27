@@ -12,11 +12,7 @@ This repo includes config files so both platforms can mostly auto-detect the set
    - `CORS_ORIGIN` — leave as `http://localhost:5173` for now, come back and update it once you have your Vercel URL (step 2.5 below).
    - `STATUS_TARGETS` — your real portal/LMS/library URLs, e.g. `Student Portal|https://portal.myschool.edu,LMS|https://lms.myschool.edu`.
    - `DATABASE_URL` — see the database note below.
-4. **Database note:** the repo ships with SQLite (`provider = "sqlite"` in `server/prisma/schema.prisma`), which is fine for local dev but Render's filesystem is ephemeral — your data will vanish on redeploy. For production:
-   - Spin up a free Postgres instance (Render Postgres, [Supabase](https://supabase.com), or [Neon](https://neon.tech)).
-   - Change `server/prisma/schema.prisma`: `provider = "postgresql"`.
-   - Set `DATABASE_URL` to that instance's connection string.
-   - Commit the schema change, then redeploy (the build step runs `prisma migrate deploy` automatically).
+4. **Database:** the schema is already set to `provider = "postgresql"`. Just set `DATABASE_URL` in Render's dashboard to your Postgres connection string (Render Postgres, Supabase, Neon, or your own instance) — nothing else to run. The build step calls `prisma db push`, which creates/updates all tables automatically on deploy. No local commands or migration files needed.
 5. Render's free plan supports WebSockets by default — no extra toggle needed, but double check under the service's **Settings** if you don't see live updates.
 6. After first deploy, seed your real data: open a Render **Shell** for the service and run `npm run seed` (after you've edited `server/src/seed.js` with your actual buildings/rooms).
 

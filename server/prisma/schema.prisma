@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Building {
+  id        Int      @id @default(autoincrement())
+  name      String
+  zone      String?
+  rooms     Room[]
+  createdAt DateTime @default(now())
+}
+
+model Room {
+  id          Int          @id @default(autoincrement())
+  building    Building     @relation(fields: [buildingId], references: [id])
+  buildingId  Int
+  name        String
+  bssid       String?      // learned Wi-Fi router fingerprint, nullable until first mapped
+  logs        NetworkLog[]
+  createdAt   DateTime     @default(now())
+
+  @@unique([buildingId, name])
+}
+
+model NetworkLog {
+  id             Int      @id @default(autoincrement())
+  room           Room     @relation(fields: [roomId], references: [id])
+  roomId         Int
+  latencyMs      Float?
+  downloadMbps   Float?
+  statusFlag     String   // ONLINE | CONGESTED | DOWN
+  reportedBssid  String?
+  createdAt      DateTime @default(now())
+}
+
+model ServiceTarget {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  url       String
+  logs      ServiceStatusLog[]
+}
+
+model ServiceStatusLog {
+  id         Int            @id @default(autoincrement())
+  target     ServiceTarget  @relation(fields: [targetId], references: [id])
+  targetId   Int
+  status     String         // UP | DOWN
+  latencyMs  Float?
+  checkedAt  DateTime       @default(now())
+}

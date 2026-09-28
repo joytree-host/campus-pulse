@@ -21,13 +21,11 @@ name: campus-pulse
 #      finishes, copy "web"'s live URL, set it as CORS_ORIGIN on the "api"
 #      service (Project -> Environment Variables), then redeploy just "api".
 #
-# Same DB-ordering note applies to the very first run: services provision
-# before databases, so "api"'s first build runs `prisma db push` with no
-# DATABASE_URL yet and will fail -- expected, exactly as the original
-# DEPLOY.md says ("Both will fail their first deploy"). Once this Blueprint
-# finishes, "maindb" will be linked and DATABASE_URL injected into "api";
-# trigger one more deploy of just "api" (Project -> New Version) to pick it
-# up and re-run `prisma db push` successfully.
+# DB ordering: the database is linked after services provision, so "api"'s
+# build must not need DATABASE_URL. Build only runs `prisma generate`; the
+# schema push and seed now run at start (npm start), when DATABASE_URL exists.
+# No failed first deploy anymore -- just set CORS_ORIGIN after "web" is live
+# and redeploy "api".
 
 services:
   - name: api

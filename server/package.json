@@ -5,8 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "node src/index.js",
-    "build": "prisma generate && prisma db push --accept-data-loss && node src/seed.js",
+    "start": "prisma db push --accept-data-loss && node src/seed.js && node src/index.js",
+    "build": "prisma generate",
     "seed": "node src/seed.js",
     "migrate": "prisma migrate dev"
   },

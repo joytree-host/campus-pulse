@@ -44,7 +44,7 @@ services:
   - name: web
     type: static
     workingDir: client
-    buildCmd: npm install && npm run build
+    buildCmd: npm install --include=dev && npm run build
     outputDir: dist
     env:
       VITE_API_URL: ${services.api.url}
